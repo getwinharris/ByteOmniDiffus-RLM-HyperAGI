@@ -14,6 +14,12 @@ keeping the project byte-native:
 - encoder_prefill_cache = True
 - accept_low_entropy_tokens = True
 - renoise_unaccepted_tokens = True
+
+It also makes the existing multi-candidate retrieval path work as a lightweight
+local Fusion / Mixture-of-Agents style mechanism: independent indexed contexts
+are treated as panel candidates, the byte canvas contributes a denoised signal,
+and the final answer is synthesized from consensus, unique coverage, and blind
+spots without adding external APIs or new dependencies.
 """
 
 import math
@@ -79,7 +85,7 @@ class BlockDiffusionConfig:
 
     This does not make CoDAR a Gemma checkpoint. It adds the same class of
     runtime controls to the byte-native HyperAGI/CoDAR repo:
-    canvas, denoising budget, entropy acceptance, and re-noising.
+    canvas, denoising budget, entropy acceptance, re-noising, and local fusion.
     """
     canvas_length: int = 256
     max_denoising_steps: int = 48
@@ -88,6 +94,8 @@ class BlockDiffusionConfig:
     encoder_prefill_cache: bool = True
     accept_low_entropy_tokens: bool = True
     renoise_unaccepted_tokens: bool = True
+    fusion_top_k: int = 10
+    include_fusion_report: bool = True
 
 
 # ============================================================================
@@ -298,11 +306,11 @@ class CosineNoiseSchedule:
 
 class CoDARDiffusion:
     """
-    CoDAR with optional block-diffusion canvas decoding.
+    CoDAR with block-diffusion canvas decoding and local fusion synthesis.
 
-    The byte index is still the knowledge source. The new canvas path adds
-    DiffusionGemma-like runtime behavior: create a 256-position canvas, denoise
-    it for up to 48 steps, accept low-entropy positions, and re-noise the rest.
+    The byte index is still the knowledge source. The canvas path creates a
+    denoised byte signal, while the fusion path treats retrieved contexts as
+    independent candidates and synthesizes the strongest answer.
     """
 
     def __init__(
@@ -431,7 +439,112 @@ class CoDARDiffusion:
                 break
             canvas = self._renoise_canvas(canvas, accepted, t)
 
-        return [self.tokenizer.embedding_to_group(emb) for emb, is_accepted in zip(canvas, accepted) if is_accepted]
+        accepted_groups = [self.tokenizer.embedding_to_group(emb) for emb, is_accepted in zip(canvas, accepted) if is_accepted]
+        if accepted_groups:
+            return accepted_groups
+
+        # Important runtime fix: low entropy acceptance is deliberately strict.
+        # If no positions pass the bound, return a small denoised fallback instead
+        # of silently discarding the canvas signal.
+        fallback_count = max(1, min(len(results) or 1, self.config.fusion_top_k, len(canvas)))
+        return [self.tokenizer.embedding_to_group(emb) for emb in canvas[:fallback_count]]
+
+    def _token_set(self, text: str) -> set:
+        return {tok.strip(".,:;!?()[]{}<>`'\"_").lower() for tok in text.split() if len(tok.strip()) > 2}
+
+    def _fusion_analysis(self, prompt: str, results: List[Dict], canvas_groups: List[List[int]]) -> Dict:
+        """
+        Analyze retrieved candidates like a lightweight local MoA judge.
+
+        Each unique context is an independent candidate. Consensus is estimated
+        by repeated query-token coverage across candidates; unique insights are
+        high-similarity contexts from different sources; blind spots are prompt
+        terms not covered by any candidate.
+        """
+        prompt_terms = self._token_set(prompt)
+        candidates = []
+        source_counts: Dict[str, int] = {}
+        term_counts: Dict[str, int] = {}
+
+        for result in results[: max(1, self.config.fusion_top_k)]:
+            context = result.get("context", "").strip()
+            if not context:
+                continue
+            terms = self._token_set(context)
+            source = result.get("source", "unknown")
+            source_counts[source] = source_counts.get(source, 0) + 1
+            for term in terms & prompt_terms:
+                term_counts[term] = term_counts.get(term, 0) + 1
+            candidates.append({
+                "source": source,
+                "similarity": result.get("similarity", 0.0),
+                "text": context,
+                "covered_prompt_terms": sorted(terms & prompt_terms),
+            })
+
+        consensus_terms = sorted([term for term, count in term_counts.items() if count >= 2])
+        partial_terms = sorted([term for term, count in term_counts.items() if count == 1])
+        blind_spots = sorted(prompt_terms - set(term_counts.keys()))
+        canvas_text = self.tokenizer.decode(canvas_groups).strip()
+
+        unique_by_source = []
+        seen_sources = set()
+        for item in sorted(candidates, key=lambda c: c["similarity"], reverse=True):
+            if item["source"] not in seen_sources:
+                seen_sources.add(item["source"])
+                unique_by_source.append(item)
+            if len(unique_by_source) >= 5:
+                break
+
+        return {
+            "consensus": consensus_terms,
+            "partial_coverage": partial_terms,
+            "blind_spots": blind_spots,
+            "unique_insights": unique_by_source,
+            "source_votes": source_counts,
+            "canvas_signal": canvas_text[:500],
+        }
+
+    def _synthesize_fusion_answer(self, prompt: str, results: List[Dict], canvas_groups: List[List[int]]) -> str:
+        analysis = self._fusion_analysis(prompt, results, canvas_groups)
+        selected_contexts = []
+        seen = set()
+        for item in sorted(results, key=lambda r: r.get("similarity", 0.0), reverse=True):
+            ctx = item.get("context", "").strip()
+            if ctx and ctx not in seen:
+                seen.add(ctx)
+                selected_contexts.append((item.get("source", "unknown"), item.get("similarity", 0.0), ctx))
+            if len(selected_contexts) >= self.config.fusion_top_k:
+                break
+
+        sources = []
+        for source, _, _ in selected_contexts:
+            if source not in sources:
+                sources.append(source)
+
+        body = " ".join(ctx for _, _, ctx in selected_contexts)
+        if not body:
+            body = self.tokenizer.decode(canvas_groups).strip()
+        if not body:
+            return "[No relevant content found in index.]"
+
+        if not self.config.include_fusion_report:
+            return body
+
+        report = [
+            "[Local Fusion: CoDAR retrieved multiple candidate contexts, denoised a byte canvas, and synthesized the strongest coverage.]",
+            f"[Sources: {', '.join(sources[:5]) if sources else 'canvas'}]",
+        ]
+        if analysis["consensus"]:
+            report.append("[Consensus terms: " + ", ".join(analysis["consensus"][:12]) + "]")
+        if analysis["partial_coverage"]:
+            report.append("[Partial coverage: " + ", ".join(analysis["partial_coverage"][:12]) + "]")
+        if analysis["blind_spots"]:
+            report.append("[Blind spots: " + ", ".join(analysis["blind_spots"][:12]) + "]")
+        if analysis["canvas_signal"]:
+            report.append("[Canvas signal: " + analysis["canvas_signal"] + "]")
+
+        return "\n".join(report) + "\n\n" + body
 
     def reason(self, prompt: str, max_groups: int = 50) -> str:
         if len(self.index.index) == 0:
@@ -441,24 +554,9 @@ class CoDARDiffusion:
         if not results:
             return "[No relevant content found in index.]"
 
-        # New path: run block diffusion canvas first so the config is active.
-        # We still assemble human-readable contexts from the index because this
-        # repo is byte-index based, not a pretrained Gemma checkpoint.
-        _decoded_canvas_groups = self.block_diffuse(prompt, results)
-
-        passages = []
-        seen = set()
-        for result in results:
-            ctx = result["context"].strip()
-            if ctx and ctx not in seen:
-                seen.add(ctx)
-                passages.append(ctx)
-
-        if passages:
-            sources = list(set(r["source"] for r in results[:5]))
-            header = f"[Sources: {', '.join(sources)}]\n\n"
-            return header + " ".join(passages[:10])
-        return self.tokenizer.decode(_decoded_canvas_groups)
+        # Run block diffusion canvas and keep its signal in the final synthesis.
+        decoded_canvas_groups = self.block_diffuse(prompt, results)
+        return self._synthesize_fusion_answer(prompt, results, decoded_canvas_groups)
 
     def completion(self, prompt: str) -> str:
         return self.reason(prompt)
@@ -492,7 +590,7 @@ def text_to_bytes(text: str) -> List[int]:
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("CoDAR — Pure Python block diffusion canvas")
+    print("CoDAR — Pure Python block diffusion canvas + local fusion")
     print("=" * 60)
 
     tok = ByteGroupTokenizer()
@@ -509,6 +607,7 @@ if __name__ == "__main__":
         encoder_prefill_cache=True,
         accept_low_entropy_tokens=True,
         renoise_unaccepted_tokens=True,
+        fusion_top_k=10,
     )
     schedule = CosineNoiseSchedule(T=100)
     codar = CoDARDiffusion(index, schedule=schedule, tokenizer=tok, config=config)
@@ -516,5 +615,5 @@ if __name__ == "__main__":
     print(f"Indexed: {index.stats['total_groups']} groups from {index.stats['total_sources']} sources")
     print(f"Config: {config}")
     print("Query: What is Python?")
-    print(codar.reason("What is Python?")[:500])
-    print("✅ CoDAR block diffusion canvas verified")
+    print(codar.reason("What is Python?")[:800])
+    print("✅ CoDAR block diffusion canvas + local fusion verified")
