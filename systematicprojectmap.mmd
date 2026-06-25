@@ -1,0 +1,163 @@
+%% systematicprojectmap.mmd
+%% Project map for getwinharris/ByteOmniDiffus-RLM-HyperAGI
+%% Purpose: understand and organize the repo before deeper implementation work.
+
+flowchart TD
+  %% =========================================================
+  %% REPOSITORY IDENTITY
+  %% =========================================================
+  Repo["ByteOmniDiffus-RLM-HyperAGI\npublic repo / main branch"]
+  Goal["bapX-v1 / RLCoDAR-HyperAGI\nPure Python byte-native diffusion + retrieval runtime"]
+  Principle["Project rule\nCoDAR core is local and byte-native\nFiles/context act as working memory / weights"]
+
+  Repo --> Goal --> Principle
+
+  %% =========================================================
+  %% USER-FACING ENTRYPOINTS
+  %% =========================================================
+  subgraph Entrypoints["User-facing entrypoints"]
+    API["rlcodar_hyperagi/api.py\nOpenAI-compatible local API server"]
+    CLI["CLI modes\n--query / --repl / --repo"]
+    README["README.md\ncurrent architecture + usage guide"]
+  end
+
+  Goal --> Entrypoints
+  API --> ChatEndpoint["POST /v1/chat/completions"]
+  API --> ModelsEndpoint["GET /v1/models"]
+  API --> HealthEndpoint["GET /health"]
+  API --> StatusEndpoint["GET /v1/rlm/status"]
+  API --> LoadContextEndpoint["POST /v1/rlm/load_context"]
+  CLI --> Completion["cli_completion(prompt)"]
+  CLI --> REPL["cli_repl()"]
+
+  %% =========================================================
+  %% CORE BYTE-NATIVE RUNTIME
+  %% =========================================================
+  subgraph CoreRuntime["Core runtime: rlcodar_hyperagi/diffusion.py"]
+    Tokenizer["ByteGroupTokenizer\nUTF-8/text/file bytes -> byte groups"]
+    ByteIndex["ByteIndex\nsource registry + searchable byte group index"]
+    Schedule["CosineNoiseSchedule\nforward/reverse diffusion schedule"]
+    Config["BlockDiffusionConfig\ncanvas length, denoising steps, entropy, re-noise, fusion"]
+    CoDAR["CoDARDiffusion\nreason() / completion()"]
+  end
+
+  Entrypoints --> CoreRuntime
+  API --> Init["init_codar(repo_root)\nindex repo files on startup"]
+  Init --> ByteIndex
+  ByteIndex --> Tokenizer
+  Config --> CoDAR
+  Schedule --> CoDAR
+  ByteIndex --> CoDAR
+
+  %% =========================================================
+  %% REASONING / GENERATION PATH
+  %% =========================================================
+  subgraph ReasoningPath["Reasoning path"]
+    InputPrompt["Prompt"]
+    Search["ByteIndex.search(prompt)"]
+    Results["Retrieved candidate contexts"]
+    Canvas["block_diffuse()\n256-position byte canvas"]
+    Denoise["reverse_step loop\ncontext-guided denoise"]
+    Accept["_accept_canvas()\ncommit low-entropy positions"]
+    Renoise["_renoise_canvas()\nretry unresolved positions"]
+    Fusion["_synthesize_fusion_answer()\nlocal fusion / MoA-style report"]
+    Output["Response text"]
+  end
+
+  CoDAR --> InputPrompt --> Search --> Results --> Canvas --> Denoise --> Accept
+  Accept -->|not all accepted| Renoise --> Denoise
+  Accept -->|accepted or fallback| Fusion --> Output
+  Results --> Fusion
+
+  %% =========================================================
+  %% OBJECTIVE / SELF-IMPROVEMENT HARNESS
+  %% =========================================================
+  subgraph ObjectiveLayer["Objective layer: rlcodar_hyperagi/objectives.py"]
+    MaskConfig["ByteMaskingConfig\nmask ratio, random replace, keep original, smart masking"]
+    Objective["MaskedByteDiffusionObjective"]
+    Corrupt["corrupt_bytes()\nmask/randomize selected byte positions"]
+    Recover["recover_bytes()\nnearest-index byte recovery"]
+    Score["score_recovery()\naccuracy + byte MAE"]
+    TrainStep["train_step()\nmeasure current recovery quality"]
+    SelfImprove["self_improve_step()\nadd weak/original sample back to index and re-measure"]
+  end
+
+  CoreRuntime --> ObjectiveLayer
+  MaskConfig --> Objective
+  Objective --> Corrupt --> Recover --> Score --> TrainStep
+  TrainStep --> SelfImprove --> ByteIndex
+
+  %% =========================================================
+  %% RLM / ENVIRONMENT LAYER
+  %% =========================================================
+  subgraph RLMBase["RLM inherited/base layer"]
+    RLM["rlm/\nRecursive Language Model framework"]
+    Core["rlm/core\nRLM core types and orchestration"]
+    Envs["rlm/environments\nlocal / isolated execution environments"]
+    Clients["rlm/clients\nLM client abstractions from upstream base"]
+    Datasets["rlm/datasets\noptional dataset streaming"]
+  end
+
+  Repo --> RLMBase
+  RLM --> Core
+  RLM --> Envs
+  RLM --> Clients
+  RLM --> Datasets
+  RLMBase -. supports .-> Principle
+  Datasets -. optional context source .-> ByteIndex
+
+  %% =========================================================
+  %% HYPERAGI / AGENT INTEGRATION
+  %% =========================================================
+  subgraph HyperAGIIntegration["HyperAGI integration intent"]
+    HyperAgents["hyperagents/\nself-improvement / routing layer"]
+    OpenAICompat["OpenAI-compatible API contract\nlocal base URL + bearer key"]
+    AgentLoop["Agent loop goal\nuse objective metrics to improve indexing, routing, and source selection"]
+  end
+
+  API --> OpenAICompat --> HyperAgents
+  ObjectiveLayer --> AgentLoop --> HyperAgents
+  HyperAgents -. future controller .-> ByteIndex
+  HyperAgents -. future controller .-> Objective
+
+  %% =========================================================
+  %% PACKAGING / PROJECT CONFIG
+  %% =========================================================
+  subgraph ProjectConfig["Project config and development rules"]
+    PyProject["pyproject.toml\npackage metadata, dependencies, package discovery"]
+    AgentsMd["AGENTS.md\ncontribution/development guidance"]
+    License["LICENSE\nMIT"]
+    Tests["tests/\nexpected by pytest config; needs verification/completion"]
+  end
+
+  Repo --> ProjectConfig
+  PyProject --> Packages["packages included:\nrlm.*, rlcodar_hyperagi.*, hyperagents.*"]
+  AgentsMd --> DevRules["ruff, pytest, small focused diffs, docs/tests updated"]
+  Tests -. should validate .-> CoreRuntime
+  Tests -. should validate .-> ObjectiveLayer
+  Tests -. should validate .-> API
+
+  %% =========================================================
+  %% ORGANIZATION PRIORITIES
+  %% =========================================================
+  subgraph OrganizeFirst["Organize-first checklist"]
+    O1["1. Separate upstream RLM base vs bapX RLCoDAR custom code"]
+    O2["2. Make README, AGENTS.md, and this project map agree"]
+    O3["3. Remove hardcoded secrets; env-only API key"]
+    O4["4. Clarify dependencies: core no Torch/NumPy/API vs optional upstream clients"]
+    O5["5. Add tests for tokenizer, index, canvas diffusion, objective, API smoke path"]
+    O6["6. Define future sub-byte/x8D direction as later research layer, not current core"]
+  end
+
+  Repo --> OrganizeFirst
+  O1 --> O2 --> O3 --> O4 --> O5 --> O6
+
+  %% =========================================================
+  %% CONCEPTUAL BOUNDARIES
+  %% =========================================================
+  Current["Current implementation boundary\nbyte-level 0-255 runtime + file/index memory"]
+  Future["Future research boundary\nsub-byte / x8D direction, tensor/layer-aware byte maps"]
+
+  Goal --> Current
+  Current -. later extension .-> Future
+  ObjectiveLayer -. metrics for future routing .-> Future
