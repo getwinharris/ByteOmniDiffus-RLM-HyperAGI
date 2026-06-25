@@ -1,14 +1,9 @@
 """
-RLCoDAR-HyperAGI: OpenAI-Compatible API Server
+ByteOmniDiffus-RLM-HyperAGI local server and CLI adapter.
 
-CoDAR IS the model. No external LLM calls.
-Indexes repo bytes + datasets, reasons via diffusion, returns passages.
-
-Usage:
-    python -m rlcodar_hyperagi.api --port 8000
-
-The API key is OpenAI-compatible but serves OUR model:
-    Authorization: Bearer rlcodar-...
+The HTTP routes keep a `/v1/...` compatibility shape for local clients. That
+compatibility surface is not the project identity and does not imply any hosted
+model dependency.
 """
 
 import os
@@ -36,22 +31,19 @@ try:
 except ImportError:
     HAS_FASTAPI = False
 
-# Master API key — OUR model's key, OpenAI-compatible format
-MASTER_API_KEY = os.getenv(
-    "RLCODAR_API_KEY",
-    "rlcodar-3f7c5f8231d7ad7f7c1629a09c4214c41fa6df00d7d83ec38966978c1ec2d398"
-)
+SERVER_TOKEN = os.getenv("BYTEOMNIDIFFUS_TOKEN") or os.getenv("RLCODAR_API_KEY")
 
-# Global CoDAR instance
+# Global runtime instance. The implementation class name is still legacy until a
+# deliberate public-symbol rename lands.
 _codar: Optional[CoDARDiffusion] = None
 _index: Optional[ByteIndex] = None
 
 
 def init_codar(repo_root: str = None):
     """
-    Initialize CoDAR by indexing repo files.
+    Initialize the ByteOmniDiffus runtime by indexing repo files.
 
-    This is the "model loading" step — the index IS the weights.
+    This is the current local loading step: the byte index is the working memory.
     """
     global _codar, _index
 
@@ -61,13 +53,13 @@ def init_codar(repo_root: str = None):
     print(f"📄 Indexing repo: {repo_root}")
 
     _index = ByteIndex()
-    total = _index.add_directory(repo_root)
+    _index.add_directory(repo_root)
 
     schedule = CosineNoiseSchedule(T=100)
     tokenizer = ByteGroupTokenizer()
     _codar = CoDARDiffusion(_index, schedule, tokenizer)
 
-    print(f"✅ CoDAR initialized: {_index.stats['total_groups']} groups from {_index.stats['total_sources']} sources ({_index.stats['total_bytes']} bytes)")
+    print(f"✅ ByteOmniDiffus initialized: {_index.stats['total_groups']} groups from {_index.stats['total_sources']} sources ({_index.stats['total_bytes']} bytes)")
 
     return _codar
 
@@ -90,7 +82,7 @@ def cli_repl():
     if _codar is None:
         init_codar()
 
-    print("\n🤖 RLCoDAR REPL (type 'quit' to exit)\n")
+    print("\n🤖 ByteOmniDiffus REPL (type 'quit' to exit)\n")
     while True:
         try:
             prompt = input(">>> ")
@@ -111,8 +103,8 @@ def cli_repl():
 
 if HAS_FASTAPI:
     app = FastAPI(
-        title="RLCoDAR-HyperAGI API",
-        description="CoDAR byte-level diffusion model — OpenAI-compatible",
+        title="ByteOmniDiffus-RLM-HyperAGI API",
+        description="Local byte-level diffusion runtime with compatibility routes",
         version="2.0.0"
     )
 
@@ -123,7 +115,7 @@ if HAS_FASTAPI:
         content: str
 
     class ChatCompletionRequest(BaseModel):
-        model: str = "rlcodar"
+        model: str = "byteomnidiffus"
         messages: List[ChatMessage]
         temperature: float = 0.7
         max_tokens: int = 16384
@@ -138,24 +130,26 @@ if HAS_FASTAPI:
         usage: Dict[str, int]
 
     async def verify_api_key(credentials: HTTPAuthorizationCredentials = Security(security)):
-        """Verify API key."""
+        """Verify local server token."""
+        if SERVER_TOKEN is None:
+            raise HTTPException(status_code=500, detail="Set BYTEOMNIDIFFUS_TOKEN before serving HTTP")
         if credentials is None:
-            raise HTTPException(status_code=401, detail="Missing API key")
-        if credentials.credentials != MASTER_API_KEY:
-            raise HTTPException(status_code=401, detail="Invalid API key")
+            raise HTTPException(status_code=401, detail="Missing token")
+        if credentials.credentials != SERVER_TOKEN:
+            raise HTTPException(status_code=401, detail="Invalid token")
         return credentials.credentials
 
     @app.on_event("startup")
     async def startup_event():
-        """Index repo on startup — this IS model loading."""
+        """Index repo on startup."""
         init_codar()
 
     @app.get("/health")
     async def health():
         return {
             "status": "healthy",
-            "service": "rlcodar-hyperagi",
-            "model": "codar",
+            "service": "byteomnidiffus-rlm-hyperagi",
+            "model": "byteomnidiffus",
             "indexed": _index.stats if _index else {},
         }
 
@@ -164,10 +158,10 @@ if HAS_FASTAPI:
         return {
             "object": "list",
             "data": [{
-                "id": "rlcodar",
+                "id": "byteomnidiffus",
                 "object": "model",
                 "created": int(time.time()),
-                "owned_by": "rlcodar-hyperagi"
+                "owned_by": "byteomnidiffus-rlm-hyperagi"
             }]
         }
 
@@ -176,9 +170,9 @@ if HAS_FASTAPI:
         request: ChatCompletionRequest,
         api_key: str = Security(verify_api_key)
     ):
-        """CoDAR completion — no external LLM calls."""
+        """ByteOmniDiffus local completion."""
         if _codar is None:
-            raise HTTPException(status_code=503, detail="CoDAR not initialized")
+            raise HTTPException(status_code=503, detail="ByteOmniDiffus not initialized")
 
         prompt = request.messages[-1].content
 
@@ -189,7 +183,7 @@ if HAS_FASTAPI:
             output_tokens = len(response_text.encode('utf-8'))
 
             return ChatCompletionResponse(
-                id=f"rlcodar-{int(time.time() * 1000)}",
+                id=f"byteomnidiffus-{int(time.time() * 1000)}",
                 created=int(time.time()),
                 model=request.model,
                 choices=[{
@@ -212,13 +206,13 @@ if HAS_FASTAPI:
 
     @app.get("/v1/rlm/status")
     async def rlm_status():
-        """CoDAR model status."""
+        """Runtime status."""
         if _index is None:
             return {"status": "not_initialized"}
         return {
             "status": "ready",
-            "model": "codar",
-            "backend": "pure-python-diffusion",
+            "model": "byteomnidiffus",
+            "backend": "pure-python-byte-diffusion",
             "index": _index.stats,
             "sources": list(_index.sources.keys())[:20],
         }
@@ -230,7 +224,7 @@ if HAS_FASTAPI:
     ):
         """Add files to the byte index."""
         if _index is None:
-            raise HTTPException(status_code=503, detail="CoDAR not initialized")
+            raise HTTPException(status_code=503, detail="ByteOmniDiffus not initialized")
 
         loaded = []
         for file_path in files:
@@ -255,7 +249,7 @@ def main():
     """Run API server or CLI."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="RLCoDAR-HyperAGI")
+    parser = argparse.ArgumentParser(description="ByteOmniDiffus-RLM-HyperAGI")
     parser.add_argument("--host", type=str, default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--repl", action="store_true", help="Run in REPL mode")
@@ -287,15 +281,15 @@ def main():
     print(f"""
 ╔══════════════════════════════════════════════════════════╗
 ║                                                          ║
-║   🚀 RLCoDAR-HyperAGI API Server v2.0                   ║
-║   CoDAR Byte-Level Diffusion Model                       ║
-║   No external LLM — pure Python inference                ║
+║   🚀 ByteOmniDiffus-RLM-HyperAGI API Server v2.0        ║
+║   Local byte-level diffusion runtime                     ║
+║   No hosted model dependency                             ║
 ║                                                          ║
 ║   Host: {args.host:<42} ║
 ║   Port: {args.port:<42} ║
 ║                                                          ║
 ║   Endpoints:                                             ║
-║   POST /v1/chat/completions  (OpenAI-compatible)         ║
+║   POST /v1/chat/completions  (compatibility route)       ║
 ║   GET  /v1/models                                        ║
 ║   GET  /health                                           ║
 ║   GET  /v1/rlm/status                                    ║
