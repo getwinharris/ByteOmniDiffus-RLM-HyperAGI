@@ -2,31 +2,32 @@
 
 ## Purpose
 
-Own the inherited Recursive Language Model base framework.
+Own the internal RLM framework subtree that is present in this repository.
 
 ## Ownership
 
-This subtree owns upstream-style RLM framework code such as core orchestration, clients, environments, datasets, communication types, and execution helpers.
+This subtree owns framework code such as core orchestration, clients, environments, datasets, communication types, and execution helpers that are already part of this repository.
 
 ## Local Contracts
 
-- Treat this subtree as framework/base-layer code, not the bapX CoDAR runtime.
+- Do not instruct agents to clone, install, or treat RLM as an external repository for this project.
+- Treat this subtree as an internal base/framework layer below the ByteOmniDiffus project.
 - Keep changes small and compatibility-aware.
-- Do not mix project-specific RLCoDAR behavior into generic RLM base abstractions unless a contract explicitly says so.
-- Prefer adapting integration at `rlcodar_hyperagi/` before modifying inherited RLM internals.
+- Do not mix ByteOmniDiffus-specific behavior into generic RLM base abstractions unless a contract and issue explicitly justify it.
+- Prefer adapting integration at "rlcodar_hyperagi/" before modifying internal RLM framework internals.
+- Do not add hosted provider defaults, GPT-4o defaults, or provider-specific project identity here.
 
 ## Work Guidance
 
 - Preserve existing public interfaces unless the issue scope calls for a breaking change.
 - Keep environment and client abstractions agent-neutral and vendor-neutral where possible.
-- Update tests and `project_map.mmd` when changing framework entrypoints, clients, environments, or communication flow.
+- If provider-specific compatibility code exists, describe it as compatibility only, not project identity.
+- Update tests and "project_map.mmd" when changing framework entrypoints, clients, environments, or communication flow.
 
 ## Verification
 
-```bash
 uv run pytest
 python3 tools/generate_project_map.py --check
-```
 
 ## Child DOCS-INDEX Index
 
