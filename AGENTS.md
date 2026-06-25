@@ -1,324 +1,310 @@
 # AGENTS.md
 
-This guide covers best practices for contributing to the core Recursive Language Models `rlm` library and developing new environments (in `rlm/environments/`) and LM clients (in `rlm/clients/`).
+## DOCS-INDEX Framework
 
-## Setup
+- DOCS-INDEX is a high-performance `AGENTS.md` hierarchy installed here.
+- Agents must follow DOCS-INDEX instructions across all edits.
+- `AGENTS.md` files are binding work contracts for their subtrees.
+- Work products, source materials, instructions, records, assets, and durable docs must stay understandable from the nearest applicable `AGENTS.md` plus every parent `AGENTS.md` above it.
 
-We use `uv` for developing `rlm`.
+## Core Contract
+
+Agents must:
+
+- Keep architecture lean.
+- Challenge unnecessary layers.
+- Consolidate existing plans before creating new ones.
+- Prefer durable repository contracts over conversation memory.
+- Keep the project understandable from files, docs, maps, and verification records.
+- Read project files, contracts, tools, and generated maps before making changes.
+- Do not rely on memory when repository contracts exist.
+- Re-read the applicable DOCS-INDEX chain in the current session before editing.
+
+## Agent Neutrality
+
+DOCS-INDEX is agent-neutral.
+
+Repository contracts must not depend on a specific AI model, coding agent, IDE, editor, MCP client, or vendor.
+
+Repository knowledge should remain portable across agent systems.
+
+Agents are replaceable. Contracts are durable.
+
+## Project Direction
+
+For this project, act as the project's technical steward.
+
+Prioritize:
+
+- Clear purpose.
+- Practical implementation.
+- Durable documentation.
+- Traceable decisions.
+- Verifiable workflows.
+- Buildable product outcomes.
+
+Do not add tools, services, frameworks, databases, APIs, deployment paths, or abstractions unless the nearest project contract justifies them.
+
+## Repository Knowledge System
+
+DOCS-INDEX provides the repository contract hierarchy.
+
+`project_map.mmd` provides the generated repository knowledge graph.
+
+Together they form the repository memory system.
+
+- `AGENTS.md` explains rules, ownership, responsibilities, workflows, and operating contracts.
+- `project_map.mmd` explains structure, relationships, dependencies, routes, services, tools, implementation status, duplicate patterns, connected functions, and unconnected functions.
+
+Agents should consult both before making significant changes.
+
+## Project Contracts
+
+Every durable project area should define its operating contract in the nearest `AGENTS.md`.
+
+A project contract may record:
+
+- Purpose.
+- User or business goal.
+- Selected stack.
+- Services.
+- Environment needs.
+- Connected tools.
+- Routing.
+- Deployment commands.
+- Verification steps.
+- Current state.
+- Non-goals.
+
+## Design Contracts
+
+Every visual project should include a `Design.md`.
+
+Project `AGENTS.md` must route UI, brand, layout, image, and visual work to `Design.md` before implementation.
+
+Do not scaffold visual project code before creating:
+
+- `AGENTS.md`
+- `Design.md`
+
+This repository is currently a byte-native research/runtime project, not a visual product. Create `Design.md` only if visual surfaces become durable project scope.
+
+## GitHub Issue, PR, and Versioning Workflow
+
+Treat feature requests, bug reports, production issues, and implementation tasks as GitHub issue work unless the user explicitly says the turn is research-only, planning-only, or no-GitHub.
+
+Before implementation:
+
+- Create or identify a GitHub issue.
+- Record the problem statement.
+- Define scope.
+- Add acceptance criteria.
+- Add verification notes.
+
+Branch naming:
+
+- When an issue exists: `agent/issue-<number>-<slug>`
+- For explicitly issue-less work: `agent/<type>-<slug>`
+
+Branch names must describe the work, not the implementation tool.
+
+Do not encode specific agent products, vendors, models, IDEs, or runtimes into branch names.
+
+Do not merge directly to `main` for feature or fix work unless the user explicitly authorizes it.
+
+Open a pull request with:
+
+- Linked issue.
+- Summary.
+- Verification.
+- Version impact.
+
+Every PR must declare version impact:
+
+- `none`
+- `patch`
+- `minor`
+- `major`
+
+`VERSION` is the project version source when present.
+
+`CHANGELOG.md` records user-facing, product, architecture, and workflow changes before merge or release.
+
+Use semantic versioning.
+
+For pre-1.0 projects:
+
+- Use `minor` for significant product, architecture, or workflow changes.
+- Use `patch` for fixes, docs corrections, and small workflow improvements.
+
+Release tags should use `vX.Y.Z`.
+
+## Project Map
+
+`project_map.mmd` is the repository's generated coding knowledge map.
+
+It exists to make the repository work like a NotebookLM-style source graph for coding agents.
+
+The map should systematically index:
+
+- Files and folders.
+- `AGENTS.md` hierarchy.
+- Source entrypoints.
+- Tool-calling functions.
+- Internal functions.
+- Routes and handlers.
+- UI components.
+- Services.
+- Scripts.
+- Workflows.
+- Configuration files.
+- Generated files.
+- Manual files.
+- Connected functions.
+- Unconnected functions.
+- Duplicate or overlapping functions.
+- Missing expected links.
+- Stale or intentionally unimplemented areas.
+
+`project_map.mmd` is not a manually maintained knowledge graph.
+
+Rules:
+
+- If `project_map.mmd` already exists, use it.
+- If `tools/generate_project_map.py` already exists, use it.
+- If `tools/generate_project_map.py` does not exist, create it before relying on generated mapping.
+- If `project_map.mmd` does not exist, generate it with `tools/generate_project_map.py`.
+- The generator must scan the repository systematically.
+- The generator must index enough structure to help agents refine the project.
+- The generator must identify connected, unconnected, duplicate, generated, and manual project areas where possible.
+- Keep the generator deterministic.
+- Update the generated map after changes affecting architecture, routing, tools, capabilities, docs, workflows, or implementation status.
+- Verify the generated map before closeout when mapped files or the generator changed.
+
+Recommended commands:
+
 ```bash
-# Install uv (first time)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Setup blank project if needed
-uv init && uv venv --python 3.12
-source .venv/bin/activate
-
-# Install in editable mode
-uv pip install -e .
-
-# For Modal sandbox support
-uv pip install -e ".[modal]"
-
-# For Prime sandbox support
-uv pip install -e ".[prime]"
+python3 tools/generate_project_map.py
+python3 tools/generate_project_map.py --check
 ```
 
-## General Guidelines
+After the project map exists, `AGENTS.md` should only reference the generated project map contract. Do not manually duplicate project knowledge that belongs in `project_map.mmd`.
 
-### Code Style & Typing
-- **Formatting**: Strict `ruff` enforcement. All PRs must pass `ruff check --fix .`
-- **Typing**: Explicit types preferred
-  - **OK**: `cast(...)`, `assert ...` for type narrowing
-  - **SOMETIMES OK**: Untyped args for simple cases (e.g., prompt handlers)
-  - **NOT OK**: `# type: ignore` without strong justification
+## Read Before Editing
 
-### Naming Conventions
-- **Methods**: snake_case
-- **Classes**: PascalCase (e.g., `LocalREPL`, `PortkeyClient`)
-- **Variables**: snake_case
-- **Constants**: UPPER_CASE (e.g., `_SAFE_BUILTINS`, `RLM_SYSTEM_PROMPT`)
+1. Read the root `AGENTS.md`.
+2. Identify every file or folder expected to change.
+3. Walk from the repository root to each target path.
+4. Read every `AGENTS.md` found along each route.
+5. If a parent `AGENTS.md` lists a child `AGENTS.md` whose scope contains the path, read that child and continue from there.
+6. Use the nearest `AGENTS.md` as the local contract and parent docs for repo-wide rules.
+7. If docs conflict, the closer doc controls local work details, but no child doc may weaken DOCS-INDEX.
 
-Do NOT use `_` prefix for private methods unless explicitly requested.
+## Update After Editing
 
-### Error Handling Philosophy
-- **Fail fast, fail loud** - No defensive programming or silent fallbacks
-- **Minimize branching** - Prefer single code paths; every `if`/`try` needs justification
-- **Example**: Missing API key → immediate `ValueError`, not graceful fallback
+Every meaningful change requires a DOCS-INDEX pass before the task is done.
 
-## Core Repository Development
+Update the closest owning `AGENTS.md` when a change affects:
 
-For PRs to `rlm` core:
-```bash
-git clone https://github.com/alexzhang13/rlm.git
-cd rlm
+- Purpose, scope, ownership, or responsibilities.
+- Durable structure, contracts, workflows, or operating rules.
+- Required inputs, outputs, permissions, constraints, side effects, or artifacts.
+- User preferences about behavior, communication, process, organization, or quality.
+- `AGENTS.md` creation, deletion, move, rename, or index contents.
 
-# Standard development:
-uv sync
+Update parent docs when parent-level structure, ownership, workflow, or child index changes.
 
-# Install dev + test dependencies:
-uv sync --group dev --group test
+Update child docs when parent changes alter local rules.
 
-# Install pre-commit hooks:
-uv run pre-commit install
+Remove stale or contradictory text immediately.
+
+Small edits that do not change behavior or contracts may leave docs unchanged, but the DOCS-INDEX pass still must happen.
+
+## Hierarchy
+
+- Root `AGENTS.md` is the DOCS-INDEX rail: project-wide instructions, global preferences, durable workflow rules, and the top-level Child DOCS-INDEX Index.
+- Child `AGENTS.md` files own domain-specific instructions and their own Child DOCS-INDEX Index.
+- Each parent explains what its direct children cover and what stays owned by the parent.
+- The closer a doc is to the work, the more specific and practical it must be.
+
+## Child Doc Shape
+
+Create a child `AGENTS.md` when a folder becomes a durable boundary with its own:
+
+- Purpose.
+- Rules.
+- Responsibilities.
+- Workflow.
+- Materials.
+- Quality standards.
+
+Default section order:
+
+```markdown
+# AGENTS.md
+
+## Purpose
+
+## Ownership
+
+## Local Contracts
+
+## Work Guidance
+
+## Verification
+
+## Child DOCS-INDEX Index
 ```
 
-### Dependencies
-- Avoid new core dependencies
-- Use optional extras for non-essential features (e.g., `modal` extra)
-- Exception: tiny deps that simplify widely-used code
+`Work Guidance` must reflect current standards.
 
-### Testing
-- `uv run pytest` with discovery under `tests/`
-- Write simple, deterministic unit tests
-- Update tests when changing functionality
-- For isolated environments, mock external services
+If there are no specific standards or instructions yet, leave it empty.
 
-### Documentation
-- Keep concise and actionable
-- Update README when behavior changes
-- Avoid content duplication
+`Verification` must reflect an existing check.
 
-### Scope
-- Small, focused diffs
-- One change per PR
-- Backward compatibility is only desirable if it can be done without introducing excessive maintenance burden
-- Delete dead code (don't guard it)
+If no verification framework exists yet, leave it empty and update it when one exists.
 
-### Checklist
+## Style
 
-Before a PR:
+- Keep docs concise, current, and operational.
+- Document stable contracts, not diary entries.
+- Put broad rules in parent docs and concrete details in child docs.
+- Prefer direct bullets with explicit names.
+- Do not duplicate rules across many files unless each scope needs a local version.
+- Delete stale notes instead of explaining history.
+- Trim obvious statements, repeated rules, misplaced detail, and warnings for risks that no longer exist.
 
-```bash
-# Run style + lint checks:
-uv run ruff check --fix .
-uv run ruff format .
-uv run pre-commit run --all-files
+## Closeout
 
-# Run tests:
-uv run pytest
-```
+1. Re-check changed paths against the DOCS-INDEX chain.
+2. Update nearest owning docs and any affected parents or children.
+3. Refresh every affected Child DOCS-INDEX Index.
+4. Remove stale or contradictory text.
+5. Create `tools/generate_project_map.py` only when missing and needed.
+6. Regenerate `project_map.mmd` when relevant.
+7. Run existing verification when relevant.
+8. Report any docs intentionally left unchanged and why.
 
-Ensure docs and tests are updated if necessary, and dead code is deleted. Strive for minimal, surgical diffs.
+## User Preferences
 
-## Developing LM Clients
+When the user requests a durable behavior change, record it here or in the relevant child `AGENTS.md`.
 
-LM client implementations live in `rlm/clients/`. All clients must inherit from `BaseLM`.
+Current durable project preference:
 
-### Client Pattern
+- Before discussing or changing this project, verify from repository files first.
+- Use repository files as source of truth over chat memory.
+- Keep project summaries organized with separate titled sections for Overview, Projects, and Work when reporting back.
 
-| Base Class | When to Use | Key Methods |
-|------------|-------------|-------------|
-| `BaseLM` | All LM integrations | `completion`, `acompletion`, `get_usage_summary`, `get_last_usage` |
+## Child DOCS-INDEX Index
 
-### Requirements
-- Inherit from `BaseLM` in `rlm/clients/base_lm.py`
-- Implement all abstract methods: `completion`, `acompletion`, `get_usage_summary`, `get_last_usage`
-- Track per-model usage (calls, input/output tokens)
-- Handle both string and message list prompts
-- Register client in `rlm/clients/__init__.py`
+Top-level ownership:
 
-### Example Structure
-```python
-from rlm.clients.base_lm import BaseLM
-from rlm.core.types import ModelUsageSummary, UsageSummary
+- `rlcodar_hyperagi/AGENTS.md` — owns the byte-native CoDAR runtime, objective harness, and OpenAI-compatible local API.
+- `rlm/AGENTS.md` — owns the inherited Recursive Language Model base framework and upstream-style environment/client abstractions.
+- `tools/AGENTS.md` — owns repository maintenance scripts, especially generated map tooling.
+- `project_map.mmd` — generated repository knowledge map. Do not hand-edit.
+- `systematicprojectmap.mmd` — earlier manual orientation map. Keep only as a human planning artifact unless replaced by generated map workflow.
+- `README.md` — public project overview. Keep aligned with root contract and generated map.
+- `pyproject.toml` — packaging, dependencies, and test configuration.
 
-class MyClient(BaseLM):
-    def __init__(self, api_key: str, model_name: str, **kwargs):
-        super().__init__(model_name=model_name, **kwargs)
-        # Initialize your client
-        
-    def completion(self, prompt: str | list[dict[str, Any]], model: str | None = None) -> str:
-        # Handle both str and message list formats
-        # Track usage with _track_cost()
-        # Return response string
-        
-    def get_usage_summary(self) -> UsageSummary:
-        # Return aggregated usage across all calls
-```
-
-### Configuration Guidelines
-- **Environment variables**: ONLY for API keys (document in README)
-- **Hardcode**: Default base URLs, reasonable defaults
-- **Arguments**: Essential customization via `__init__()`
-
-## Developing Environments
-
-Environment implementations live in `rlm/environments/`. Choose the appropriate base class.
-
-### Environment Pattern
-
-| Pattern | Base Class | When to Use | Key Methods |
-|---------|------------|-------------|-------------|
-| **Non-isolated** | `NonIsolatedEnv` | Local execution, same machine | `setup`, `load_context`, `execute_code` |
-| **Isolated** | `IsolatedEnv` | Cloud sandboxes (Modal, Prime) | `setup`, `load_context`, `execute_code` |
-
-### Requirements
-- Inherit from `NonIsolatedEnv` or `IsolatedEnv` in `rlm/environments/base_env.py`
-- Implement all abstract methods: `setup`, `load_context`, `execute_code`
-- Return `REPLResult` from `execute_code`
-- Handle `lm_handler_address` for LM calls via `llm_query()` and `rlm_query()`
-- Implement `cleanup()` for resource management
-- Register environment in `rlm/environments/__init__.py`
-
-### Key Implementation Details
-- `setup()`: Initialize globals, locals, and helper functions
-- `load_context()`: Make context available as `context` variable
-- `execute_code()`: Execute code, capture stdout/stderr, return `REPLResult`
-- Always provide `llm_query`, `llm_query_batched`, `rlm_query`, and `rlm_query_batched` functions in environment globals
-
-### State Management
-Environments must provide these globals to executed code:
-- `context`: The loaded context payload
-- `llm_query(prompt, model=None)`: Plain single LM completion (no REPL, no iteration)
-- `llm_query_batched(prompts, model=None)`: Batched plain LM completions
-- `rlm_query(prompt, model=None)`: Recursive child RLM call (own REPL + iteration). Falls back to `llm_query` at max depth.
-- `rlm_query_batched(prompts, model=None)`: Batched recursive child RLM calls
-- `FINAL_VAR(variable_name)`: For returning final answers
-- `SHOW_VARS()`: For listing available variables
-
-### Example Structure
-```python
-from rlm.environments.base_env import NonIsolatedEnv
-from rlm.core.types import REPLResult
-
-class MyEnvironment(NonIsolatedEnv):
-    def __init__(self, lm_handler_address: tuple[str, int] | None = None, 
-                 context_payload: dict | list | str | None = None, **kwargs):
-        super().__init__(**kwargs)
-        self.lm_handler_address = lm_handler_address
-        self.setup()
-        if context_payload:
-            self.load_context(context_payload)
-            
-    def setup(self):
-        # Initialize execution namespace
-        
-    def load_context(self, context_payload: dict | list | str):
-        # Make context available to executed code
-        
-    def execute_code(self, code: str) -> REPLResult:
-        # Execute code and return REPLResult
-        
-    def cleanup(self):
-        # Clean up resources
-```
-
-### Checklist
-- Guidelines here are followed
-- Environment works with basic RLM completion calls
-- `cleanup()` properly releases all resources
-- Sub-LM calls work via `llm_query()` and `rlm_query()`
-- Reserved names (`llm_query`, `rlm_query`, `context`, `history`, `FINAL_VAR`, `SHOW_VARS`) are restored after each execution
-
-## Architecture: Environment ↔ LM Handler Communication
-
-Understanding how environments communicate with the LM Handler is essential for developing new environments.
-
-### Overview
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│  Host Machine                                                       │
-│  ┌─────────────┐       Socket (TCP)        ┌──────────────────────┐ │
-│  │   RLM       │◄──────────────────────────►  LMHandler           │ │
-│  │  (main)     │                           │  (ThreadingTCPServer)│ │
-│  └─────────────┘                           └──────────────────────┘ │
-│        │                                            ▲               │
-│        ▼                                            │               │
-│  ┌─────────────┐       Socket (TCP)                 │               │
-│  │ LocalREPL   │────────────────────────────────────┘               │
-│  │ (exec code) │  llm_query() / rlm_query() → LM calls               │
-│  └─────────────┘                                                    │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-### Socket Protocol (Non-Isolated Environments)
-
-Non-isolated environments like `LocalREPL` communicate directly with the `LMHandler` via TCP sockets using a length-prefixed JSON protocol:
-
-**Protocol Format**: `4-byte big-endian length prefix + UTF-8 JSON payload`
-
-```python
-# Sending a message (from rlm/core/comms_utils.py)
-def socket_send(sock: socket.socket, data: dict) -> None:
-    payload = json.dumps(data).encode("utf-8")
-    sock.sendall(struct.pack(">I", len(payload)) + payload)
-```
-
-**Request Flow**:
-1. Environment's `llm_query(prompt)` or `rlm_query(prompt)` is called during code execution
-2. For `llm_query`: creates `LMRequest` and calls `send_lm_request(address, request)`. For `rlm_query`: invokes `subcall_fn` to spawn a child RLM (or falls back to `llm_query` at max depth).
-3. Opens TCP connection to `LMHandler` at `(host, port)`
-4. Sends length-prefixed JSON request
-5. `LMHandler` processes via `LMRequestHandler.handle()`
-6. Returns `LMResponse` with `RLMChatCompletion` or error
-
-**Key Components**:
-- `LMHandler` (`rlm/core/lm_handler.py`): Multi-threaded TCP server wrapping LM clients
-- `LMRequest` / `LMResponse` (`rlm/core/comms_utils.py`): Typed request/response dataclasses
-- `send_lm_request()` / `send_lm_request_batched()`: Helper functions for socket communication
-
-### HTTP Broker Pattern (Isolated Environments)
-
-Isolated environments (Modal, Prime) cannot directly connect to the host's socket server. They use an HTTP broker pattern:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  Host Machine                                                               │
-│  ┌─────────┐    Socket    ┌────────────┐    HTTP Poll    ┌────────────────┐ │
-│  │   RLM   │◄────────────►│  LMHandler │◄────────────────│   ModalREPL    │ │
-│  └─────────┘              └────────────┘                 │  (poller)      │ │
-│                                                          └────────────────┘ │
-│                                                                  │          │
-│                                                          HTTP (tunnel)      │
-│                                                                  │          │
-└──────────────────────────────────────────────────────────────────┼──────────┘
-                                                                   │
-┌──────────────────────────────────────────────────────────────────┼──────────┐
-│  Cloud Sandbox (Modal/Prime)                                     ▼          │
-│  ┌─────────────┐     HTTP (localhost)     ┌─────────────────────────────┐   │
-│  │ Exec Script │◄────────────────────────►│   Broker Server (Flask)     │   │
-│  │ (exec code) │     /enqueue, etc.       │   - /enqueue (submit req)   │   │
-│  └─────────────┘                          │   - /pending (poll reqs)    │   │
-│                                           │   - /respond (return resp)  │   │
-│                                           └─────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-**How It Works**:
-
-1. **Sandbox Setup**: Environment creates a cloud sandbox with an HTTP broker server running inside
-2. **Tunnel Exposure**: Broker server is exposed via encrypted tunnel (e.g., Modal's `encrypted_ports`)
-3. **Code Execution**: When `llm_query()` is called inside sandbox, it POSTs to `http://localhost:8080/enqueue`
-4. **Request Queuing**: Broker queues the request and blocks waiting for response
-5. **Host Polling**: `ModalREPL` on host polls `{tunnel_url}/pending` for new requests
-6. **LM Forwarding**: Host forwards requests to `LMHandler` via socket, gets response
-7. **Response Delivery**: Host POSTs response to `{tunnel_url}/respond`
-8. **Unblocking**: Broker unblocks the original `/enqueue` call with the response
-
-**Broker Endpoints**:
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/enqueue` | POST | Submit LLM request from sandbox code (blocks until response) |
-| `/pending` | GET | Get list of pending requests (called by host poller) |
-| `/respond` | POST | Submit response for a request ID (called by host poller) |
-| `/health` | GET | Health check |
-
-**Key Implementation Details**:
-- Broker runs as a Flask server inside the sandbox
-- Uses `threading.Event` for request/response synchronization
-- Poller thread on host runs in background with 100ms polling interval
-- State persistence via `dill` serialization to `/tmp/rlm_state.dill`
-
-### Implementing a New Isolated Environment
-
-When building a new isolated environment (e.g., for a new cloud provider):
-
-1. **Create broker server** - Flask/HTTP server with `/enqueue`, `/pending`, `/respond` endpoints
-2. **Expose tunnel** - Use provider's tunnel/port forwarding to expose broker to host
-3. **Implement poller** - Background thread on host to poll and forward requests
-4. **Build exec script** - Script that runs inside sandbox with `llm_query()` calling broker
-5. **Handle state** - Serialize/deserialize execution state between code blocks
-
-See `rlm/environments/modal_repl.py` as the canonical reference implementation.
-
+This root contract owns files that do not have a closer child `AGENTS.md`.
