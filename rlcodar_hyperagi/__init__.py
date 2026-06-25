@@ -1,14 +1,12 @@
 """
-RLCoDAR-HyperAGI: Unified Package
+ByteOmniDiffus-RLM-HyperAGI package.
 
-OpenAI-compatible API server connecting HyperAgents to RLM.
+This package exposes the current local API/CLI adapter around the byte-native
+runtime. Provider-shaped endpoint names are compatibility surfaces only; they
+are not the project identity and do not imply a hosted model dependency.
 
 Usage:
     python -m rlcodar_hyperagi.api --port 8000
-
-Then configure HyperAgents (.env):
-    OPENAI_BASE_URL=http://localhost:8000/v1
-    OPENAI_API_KEY=not-needed
 """
 
 from rlcodar_hyperagi.api import app, main
